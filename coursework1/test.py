@@ -1,6 +1,7 @@
 import numpy as np
 import math
 from collections import Counter, defaultdict
+import operator
 
 #def calc_angle(x, y):
  #norm_x = np.linalg.norm(x)
@@ -32,6 +33,13 @@ def getContent(file):
 		content+=[set(line.split())]
 	return content
 
+# Given file locations, gets the list of words per line in a list
+def getLiteralContent(file):
+	content = []
+	for line in open(file).read().splitlines():
+		content+=[line.split()]
+	return content
+
 def getDictionary(file):
 	content = []
 	for line in open(file).read().splitlines():
@@ -41,7 +49,14 @@ def getDictionary(file):
 def getVector(dictionary, text):
 	genList = []
 	for word in dictionary:
-		genList += text.count(word)
+		genList.append(text.count(word))
+	return np.array(genList)
+
+def getVectorQuery(dictionary, query):
+	genList = []
+	for word in dictionary:
+		# Could also use a clamp function here, and simply clamp the count?
+		genList.append(1 if (query.count(word) > 0) else 0)
 	return np.array(genList)
 
 def calcAngle(x, y):
@@ -52,8 +67,10 @@ def calcAngle(x, y):
  	return theta
 
 def searchDocument(file, queryFile):
-	# List of lines
 	for line in open(queryFile).read().splitlines():
+		# Dict of results
+		results = {}
+
 		print("Query: " + line)
 		lineData = set(line.split())
 		#Get an int list of IDs for documents in the file that have matching words
@@ -64,8 +81,7 @@ def searchDocument(file, queryFile):
 		for datum in lineData:
 			if (datum not in dictionary):
 				lineData.remove(datum)
-		document = getContent(file)
-		invertedIndex = getInvertedIndex(document)
+		invertedIndex = getInvertedIndex(getContent(file))
 
 		listOfIDs = []
 		for datum in lineData:
@@ -75,8 +91,16 @@ def searchDocument(file, queryFile):
 
 		# get new inverted index for dictionary + query, then go through the previous inverted index and turn each one into a vector and compare
 		#queryIndex = getInvertedIndex(lineData + dictionary)
-		vectorDoc = getVector(dictionary, document)
-		vectorQuery = getVector(dictionary, lineData)
+		docID = 0;
+		for docLine in getLiteralContent(file):
+			vectorDoc = getVector(dictionary, list(docLine))
+			vectorQuery = getVectorQuery(dictionary, list(lineData))
+			results[docID] = calcAngle(vectorQuery, vectorDoc)
+			docID += 1
+
+		resultsSorted = sorted(results.items(), key=operator.itemgetter(1))
+		for pair in resultsSorted:
+			print("Document ID: ", pair[0], ", angle: ", pair[1])
 
 
 #print(getInvertedIndex([["a", "b"], ["a", "c"], ["a", "c"], ["b", "d"], ["a", "b", "c"]]))
